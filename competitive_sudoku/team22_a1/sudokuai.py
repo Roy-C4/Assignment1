@@ -102,6 +102,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         unique_values = []
                         unique_values_square = []
          
+        # choose random move
         move = random.choice(all_moves)
         self.propose_move(move)
         while True:
