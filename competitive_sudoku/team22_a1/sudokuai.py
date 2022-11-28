@@ -86,8 +86,8 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                        
                         # find out in which region, coordinates of region and then check all values in that region
                         # find left corner of "the square" where the current coordinate belongs to
-                        square_lc_i = (2 * (math.floor( (i/m) )))
-                        square_lc_j = (2 * (math.floor( (j/m) )))
+                        square_lc_i = (m * (math.floor( (i/m) )))
+                        square_lc_j = (m * (math.floor( (j/m) )))
                         
                         # loop through all values in the square and add it to a list
                         for si in range(square_lc_i, square_lc_i+m):
