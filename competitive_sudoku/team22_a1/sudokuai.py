@@ -98,8 +98,6 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         if (v not in unique_values) and (v not in unique_values_square) and (not TabooMove(i, j, v) in game_state.taboo_moves): 
                             all_moves.append(Move(i,j,v))
                         
-                        print(i, j, ":", unique_values)
-                        print(i, j, ":", unique_values_square)
                         # empty list for next element
                         unique_values = []
                         unique_values_square = []
