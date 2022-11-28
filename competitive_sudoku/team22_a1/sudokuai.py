@@ -6,7 +6,7 @@ import random
 import time
 from competitive_sudoku.sudoku import GameState, Move, SudokuBoard, TabooMove
 import competitive_sudoku.sudokuai
-
+import math
 
 class create_node:
    def __init__(self, score):
@@ -55,61 +55,53 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
     def __init__(self):
         super().__init__()   
         
-        
-    
-
-    # N.B. This is a very naive implementation.
     def compute_best_move(self, game_state: GameState) -> None:
         N = game_state.board.N
-        n = game_state.board.n
         m = game_state.board.m
 
-        def possible(i, j, value):
-            return game_state.board.get(i, j) == SudokuBoard.empty \
-                   and not TabooMove(i, j, value) in game_state.taboo_moves
+        all_moves=[]
+        unique_values = []
+        unique_values_square = []
+        for i in range(N):
+            for j in range(N):
+                for v in range(1, N+1):
+                    # if cell is empty
+                    if (game_state.board.get(i, j) == SudokuBoard.empty):                 
+                        # if cell to the left exists check left and is within boundaries
+                        if j-1 >= 0:
+                            for l in range(0, j):
+                                unique_values.append(game_state.board.get(i, l))
+                        # if cell to the right exists check right and is within boundaries
+                        if j+1 <= N-1:
+                            for r in range(j+1, N):
+                                unique_values.append(game_state.board.get(i, r))
+                         # if cell above exists check up and is within boundaries
+                        if i-1 >= 0:
+                            for u in range(0, i):
+                                unique_values.append(game_state.board.get(u, j))
+                        # if cell below exists check down and is within boundaries
+                        if i+1 <= N-1:
+                            for b in range(i+1, N):
+                                unique_values.append(game_state.board.get(b, j))
+                       
+                        # find out in which region, coordinates of region and then check all values in that region
+                        # find left corner of "the square" where the current coordinate belongs to
+                        square_lc_i = (2 * (math.floor( (i/m) )))
+                        square_lc_j = (2 * (math.floor( (j/m) )))
+                        
+                        # loop through all values in the square and add it to a list
+                        for si in range(square_lc_i, square_lc_i+2):
+                            for sj in range(square_lc_j, square_lc_j+2):
+                                unique_values_square.append(game_state.board.get(si, sj))
 
-        all_moves = [Move(i, j, value) for i in range(N) for j in range(N)
-                     for value in range(1, N+1) if possible(i, j, value)]
-
-        for e in all_moves:
-            print(e)
-        for e in all_moves:
-            if e.i != 0 or e.i != N-1: # if not row 0 or row N
-                for u in range(0, e.i) : # check cells above
-                    for b in range(e.i+1, N): # check cells below
-                        if game_state.board.get(u, e.j) == e.value or game_state.board.get(b, e.j) == e.value:
-                            all_moves.remove(e)
-            if e.i == 0: # if row 0
-                for b in range(e.i+1, N): # check cells below
-                    if game_state.board.get(e.i, b) == e.value:
-                            all_moves.remove(e)
-            if e.i == N-1: # if last row
-                for u in range(0, e.i): # check cells above
-                    if game_state.board.get(u, e.j) == e.value:
-                            all_moves.remove(e)
-            if e.j != 0 or e.j != N-1: # if not col 0 or col N
-                for l in range(0, e.j) : # check cells left
-                    for r in range(e.j+1, N): # check cells right
-                        if game_state.board.get(e.i, l) == e.value | game_state.board.get(e.i, r) == e.value:
-                            all_moves.remove(e)
-            if e.j == 0: # if first col
-                for r in range(e.j+1, N): # check right
-                    if game_state.board.get(e.i, r) == e.value:
-                        all_moves.remove(e)
-            if e.j == N-1: # if last col
-                for l in range(0, e.j): # check left
-                    if game_state.board.get(e.i, l) == e.value:
-                        all_moves.remove(e)
-            
-            subgrids = N/m
-
-
-
-
-
-
-        for e in all_moves:
-            print(e)
+                        # create move if value is not seen in the regions and if move is not declared taboo before
+                        if (v not in unique_values) and (v not in unique_values_square) and (not TabooMove(i, j, v) in game_state.taboo_moves): 
+                            all_moves.append(Move(i,j,v))
+                        
+                        # empty list for next element
+                        unique_values = []
+                        unique_values_square = []
+         
         move = random.choice(all_moves)
         self.propose_move(move)
         while True:
