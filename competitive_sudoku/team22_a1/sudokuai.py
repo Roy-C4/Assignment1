@@ -61,7 +61,8 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
     # N.B. This is a very naive implementation.
     def compute_best_move(self, game_state: GameState) -> None:
         N = game_state.board.N
-        
+        n = game_state.board.n
+        m = game_state.board.m
 
         def possible(i, j, value):
             return game_state.board.get(i, j) == SudokuBoard.empty \
@@ -69,6 +70,46 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
         all_moves = [Move(i, j, value) for i in range(N) for j in range(N)
                      for value in range(1, N+1) if possible(i, j, value)]
+
+        for e in all_moves:
+            print(e)
+        for e in all_moves:
+            if e.i != 0 or e.i != N-1: # if not row 0 or row N
+                for u in range(0, e.i) : # check cells above
+                    for b in range(e.i+1, N): # check cells below
+                        if game_state.board.get(u, e.j) == e.value or game_state.board.get(b, e.j) == e.value:
+                            all_moves.remove(e)
+            if e.i == 0: # if row 0
+                for b in range(e.i+1, N): # check cells below
+                    if game_state.board.get(e.i, b) == e.value:
+                            all_moves.remove(e)
+            if e.i == N-1: # if last row
+                for u in range(0, e.i): # check cells above
+                    if game_state.board.get(u, e.j) == e.value:
+                            all_moves.remove(e)
+            if e.j != 0 or e.j != N-1: # if not col 0 or col N
+                for l in range(0, e.j) : # check cells left
+                    for r in range(e.j+1, N): # check cells right
+                        if game_state.board.get(e.i, l) == e.value | game_state.board.get(e.i, r) == e.value:
+                            all_moves.remove(e)
+            if e.j == 0: # if first col
+                for r in range(e.j+1, N): # check right
+                    if game_state.board.get(e.i, r) == e.value:
+                        all_moves.remove(e)
+            if e.j == N-1: # if last col
+                for l in range(0, e.j): # check left
+                    if game_state.board.get(e.i, l) == e.value:
+                        all_moves.remove(e)
+            
+            subgrids = N/m
+
+
+
+
+
+
+        for e in all_moves:
+            print(e)
         move = random.choice(all_moves)
         self.propose_move(move)
         while True:
