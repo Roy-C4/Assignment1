@@ -90,14 +90,16 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         square_lc_j = (2 * (math.floor( (j/m) )))
                         
                         # loop through all values in the square and add it to a list
-                        for si in range(square_lc_i, square_lc_i+2):
-                            for sj in range(square_lc_j, square_lc_j+2):
+                        for si in range(square_lc_i, square_lc_i+m):
+                            for sj in range(square_lc_j, square_lc_j+m):
                                 unique_values_square.append(game_state.board.get(si, sj))
 
                         # create move if value is not seen in the regions and if move is not declared taboo before
                         if (v not in unique_values) and (v not in unique_values_square) and (not TabooMove(i, j, v) in game_state.taboo_moves): 
                             all_moves.append(Move(i,j,v))
                         
+                        print(i, j, ":", unique_values)
+                        print(i, j, ":", unique_values_square)
                         # empty list for next element
                         unique_values = []
                         unique_values_square = []
