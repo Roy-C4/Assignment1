@@ -123,7 +123,6 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                            
                         # empty list for next element
                         reward = 0
-                        rewards = []
                         unique_values_row = []
                         unique_values_col = []
                         unique_values_square = []
