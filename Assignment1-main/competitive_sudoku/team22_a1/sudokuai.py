@@ -113,7 +113,7 @@ def create_tree(game_state: GameState):
         for move_opp in legal_move:
             if not possible(move_opp.i, move_opp.j, move_opp.value,game_state):
                 continue
-            (root.child[k-1].child).append(Node(rewards[opp],move_opp))
+            (root.child[k].child).append(Node(rewards[opp],move_opp))
             opp+=1
         k+=1
     
