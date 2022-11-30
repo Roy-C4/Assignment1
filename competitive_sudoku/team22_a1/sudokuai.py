@@ -7,7 +7,6 @@ import time
 from competitive_sudoku.sudoku import GameState, Move, SudokuBoard, TabooMove
 import competitive_sudoku.sudokuai
 import math
-
 #class for creating individual nodes for the game tree
 class Node:
        def __init__(self, key,mov):
@@ -106,33 +105,30 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             return game_state.board.get(i, j) == SudokuBoard.empty \
                     and not TabooMove(i, j, value) in game_state.taboo_moves
 
-        #create the game tree with depth of 2
-        def create_tree(game_state: GameState):
+        #create the game tree until no more moves are left
+        def create_tree(game_state: GameState, i=False, j=False, v=False):
+            # get moves from current state and the scores
             all_moves, score = GetLegalMoves(game_state)
 
-            root = newNode()
-            k=0
-            for move in all_moves:
-                if not possible(move.i, move.j, move.value,game_state):
-                    continue
-            
-                (root.child).append(Node(score[k],move))
-
-                temp_game = game_state
-                temp_game.board.put(move.i, move.j, move.value)
-                legal_move, rewards = GetLegalMoves(temp_game)
-                opp = 0
-                #for each depth add the scores for the new possible legal moves to the tree
-                for move_opp in legal_move:
-                    if not possible(move_opp.i, move_opp.j, move_opp.value,game_state):
+            # while the list is not empty
+            while(all_moves != None):
+                # create root node
+                root = newNode()
+                # this keeps track of index (to retrieve correct score at index x for move at index x (they are stored in separate lists))
+                k=0
+                for move in all_moves:
+                    if not possible(move.i, move.j, move.value,game_state):
                         continue
-
-                    (root.child[k].child).append(Node(rewards[opp],move_opp))
-                    opp = opp + 1
-                    
-                k= k+1
-
-            return root
+                    # create child node and assign the score
+                    (root.child).append(Node(score[k],move))
+                    # put the move on the board
+                    game_state.board.put(move.i, move.j, move.value)
+                    # pass the new state of the game and the move
+                    create_tree(game_state, move.i, move.j, move.value)
+                    # go to next move
+                    k= k+1
+                # return root element
+                return root
 
         #implementation of minimax algorithm with alpha beta pruning
         def minimax(curr_depth, head, max_player, depth, alpha, beta) -> Node:   
@@ -146,13 +142,17 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 max_node = None #initialising the max_node to none value 
                 
                 for node in nodes:
-                    if node is not None and node.key > mx:   #check if the value in nodes is not null
-                        mx = node.key                        #if mx is less than the current node value, then update mx, basically finding the maximum of node.key and mx
-                        max_node = node                      #update max_node
+                    #check if the value in nodes is not null
+                    if node is not None and node.key > mx: 
+                        #if mx is less than the current node value, then update mx, basically finding the maximum of node.key and mx  
+                        mx = node.key
+                        #update max_node                 
+                        max_node = node                      
                     alpha = max(alpha, max_node.key)
                     if beta <= alpha:
                         break
-                return max_node                              #return the max_node for each depth of the game tree
+                #return the max_node for each depth of the game tree
+                return max_node                              
             
             else:
                 nodes = [minimax(curr_depth + 1, c,
@@ -161,20 +161,32 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 mn = float('inf')
                 min_node = None
                 for node in nodes:
-                    if node.key < mn:                       #if mn is greater than the current node value, then update mn, basically finding the minimum of node.key and mn
+                    #if mn is greater than the current node value, then update mn, basically finding the minimum of node.key and mn
+                    if node.key < mn:                      
                         mn = node.key
-                        min_node = node                     #update min_node
+                        #update min_node
+                        min_node = node  
                     beta = min(beta, min_node.key)
                     if beta <= alpha:
                         break
                 return min_node
 
-        def choose_move(game_state: GameState) -> Move:     #choose the optimal move with the minimax algorithm
-            game_tree_head = create_tree(game_state)
-            return minimax(0,game_tree_head,True,2, float('-inf'), float('inf')).mov
+        #choose the optimal move with the minimax algorithm
+        def choose_move(game_state: GameState) -> Move:   
+            # depth range  
+            for i in range(0, 100):
+                # create tree
+                game_tree_head = create_tree(game_state)
+                # propose with every iteration the best found move so far
+                # we don't want to start from depth 0 again. 
+                return self.propose_move(minimax(i,game_tree_head,True,i+1, float('-inf'), float('inf')).mov)
                           
-        move = choose_move(game_state)                      #pick an optimal move 
-        self.propose_move(move)   
+        # initial suggested move just in case
+        l, r = GetLegalMoves(game_state)
+        # get first legal move
+        self.propose_move(l[0])
+        # propose moves based on mini max algorithm
+        choose_move(game_state)
 
 
 
