@@ -8,6 +8,7 @@ from competitive_sudoku.sudoku import GameState, Move, SudokuBoard, TabooMove
 import competitive_sudoku.sudokuai
 import math
 
+#class for creating individual nodes for the game tree
 class Node:
        def __init__(self, key,mov):
         self.child= []
@@ -15,7 +16,7 @@ class Node:
         self.mov = mov
         
 def newNode():
-    temp = Node(0,Move(0,0,0))
+    temp = Node(0,Move(0,0,0)) #initialising the node value
     return temp
 
 class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
@@ -99,11 +100,13 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                             
                         
             return all_moves,rewards
-    
+
+        #checks if the cell to be filled is empty and it is not a taboo move
         def possible(i, j, value, game_state:GameState):
             return game_state.board.get(i, j) == SudokuBoard.empty \
                     and not TabooMove(i, j, value) in game_state.taboo_moves
 
+        #create the game tree with depth of 2
         def create_tree(game_state: GameState):
             all_moves, score = GetLegalMoves(game_state)
 
@@ -119,7 +122,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 temp_game.board.put(move.i, move.j, move.value)
                 legal_move, rewards = GetLegalMoves(temp_game)
                 opp = 0
-
+                #for each depth add the scores for the new possible legal moves to the tree
                 for move_opp in legal_move:
                     if not possible(move_opp.i, move_opp.j, move_opp.value,game_state):
                         continue
@@ -131,24 +134,25 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
             return root
 
+        #implementation of minimax algorithm with alpha beta pruning
         def minimax(curr_depth, head, max_player, depth, alpha, beta) -> Node:   
             if curr_depth == depth or len(head.child)==0:
                 return head
             
-            
+            #check if maximising player
             if (max_player):
                 nodes = [minimax(curr_depth + 1, c, False, depth, alpha, beta) for c in head.child]
                 mx = float('-inf')
-                max_node = None
+                max_node = None #initialising the max_node to none value 
                 
                 for node in nodes:
-                    if node is not None and node.key > mx:
-                        mx = node.key
-                        max_node = node
+                    if node is not None and node.key > mx:   #check if the value in nodes is not null
+                        mx = node.key                        #if mx is less than the current node value, then update mx, basically finding the maximum of node.key and mx
+                        max_node = node                      #update max_node
                     alpha = max(alpha, max_node.key)
                     if beta <= alpha:
                         break
-                return max_node
+                return max_node                              #return the max_node for each depth of the game tree
             
             else:
                 nodes = [minimax(curr_depth + 1, c,
@@ -157,19 +161,19 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 mn = float('inf')
                 min_node = None
                 for node in nodes:
-                    if node.key < mn:
+                    if node.key < mn:                       #if mn is greater than the current node value, then update mn, basically finding the minimum of node.key and mn
                         mn = node.key
-                        min_node = node
+                        min_node = node                     #update min_node
                     beta = min(beta, min_node.key)
                     if beta <= alpha:
                         break
                 return min_node
 
-        def choose_move(game_state: GameState) -> Move:
+        def choose_move(game_state: GameState) -> Move:     #choose the optimal move with the minimax algorithm
             game_tree_head = create_tree(game_state)
             return minimax(0,game_tree_head,True,2, float('-inf'), float('inf')).mov
                           
-        move = choose_move(game_state) 
+        move = choose_move(game_state)                      #pick an optimal move 
         self.propose_move(move)   
 
 
