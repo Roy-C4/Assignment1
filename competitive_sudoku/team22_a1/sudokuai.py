@@ -131,19 +131,13 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
             return root
 
-        def choose_move(game_state: GameState) -> Move:
-            game_tree_head = create_tree(game_state)
-            mj = minimax(0,game_tree_head,True,2)
-            print("Final move or something ", mj.mov.i, mj.mov.j, mj.mov.value)
-            return minimax(0,game_tree_head,True,2).mov
-                
-        def minimax(curr_depth, head, max_player, depth) -> Node:   
+        def minimax(curr_depth, head, max_player, depth, alpha, beta) -> Node:   
             if curr_depth == depth or len(head.child)==0:
                 return head
             
             
             if (max_player):
-                nodes = [minimax(curr_depth + 1, c, False, depth) for c in head.child]
+                nodes = [minimax(curr_depth + 1, c, False, depth, alpha, beta) for c in head.child]
                 mx = float('-inf')
                 max_node = None
                 
@@ -151,11 +145,14 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                     if node is not None and node.key > mx:
                         mx = node.key
                         max_node = node
+                    alpha = max(alpha, max_node.key)
+                    if beta <= alpha:
+                        break
                 return max_node
             
             else:
                 nodes = [minimax(curr_depth + 1, c,
-                            True, depth)
+                            True, depth, alpha, beta)
                         for c in head.child]
                 mn = float('inf')
                 min_node = None
@@ -163,8 +160,15 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                     if node.key < mn:
                         mn = node.key
                         min_node = node
+                    beta = min(beta, min_node.key)
+                    if beta <= alpha:
+                        break
                 return min_node
-            
+
+        def choose_move(game_state: GameState) -> Move:
+            game_tree_head = create_tree(game_state)
+            return minimax(0,game_tree_head,True,2, float('-inf'), float('inf')).mov
+                          
         move = choose_move(game_state) 
         self.propose_move(move)   
 
