@@ -241,8 +241,8 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             @return Node best_node: return the node that contains the best move
             """
             # if depth equal mdepth, copy diff value to the attribute value and return the node
-            # or if depth is 1 return best child from current game position
-            if depth == mdepth or depth == 1:
+            # or if node has no children
+            if depth == mdepth or not node.child:
                 node.value = node.diff
                 return node
 
@@ -375,8 +375,8 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         state.board.put(child.mov.i, child.mov.j, 0)
                     # decrease the depth
                     cdepth = cdepth - 1
-            # if current depth is total depth
-            if cdepth == tdepth:
+            # if current depth is total depth or if there are no children
+            if cdepth == tdepth or not children:
                 # ONLY STORE FINAL SCORE AND DIFF IN THE LEAF NODE
                 # append the final scores list with the accumulated scores for player
                 # 1 and 2 at index 0 and 1 respectively.
