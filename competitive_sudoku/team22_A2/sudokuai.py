@@ -293,7 +293,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         break
                 return best_node
 
-        def tree(state, currentnode, cdepth, tdepth):
+        def tree(state, currentnode, cdepth, tdepth, nr=False, rm=False):
             """
                 Constructs the game tree, incl. keeping track of the final scores, calculating the difference and
                 assigning them to the respective node
@@ -302,6 +302,9 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @param Node currentnode: node object
                 @param int cdepth: current depth of the node
                 @param int tdepth: total depth of tree aka number of empty cells in the board
+                @param int nr = number of unsure_moves that at least need to be present in the unsure_moves list
+                to consider unsure moves for exploration
+                @param int rm = amount of randomly picked unsure moves
                 @return: does not return anything but it creates the tree
             """
             # get legal moves/children, unsure moves and list of rewards of game state
@@ -313,26 +316,26 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 if children != None:
                     k=0
                     for child in children:
-                        # if unsure moves list is not empty and it contains less than 10 moves
-                        if unsure_moves != None and len(unsure_moves) < 10:
+                        # if unsure moves list is not empty and it contains less than x moves given x
+                        if unsure_moves != None and len(unsure_moves) < nr:
                             # then only consider moves that are not "unsure"
                             if child not in unsure_moves:
                                 # create child node with its respective score and
                                 # diff is initialized to 0
-                                (currentnode.child).append(Node(child, score[k], 0))
-                        # if unsure moves is not empty and it contains more than 10 moves
-                        elif unsure_moves != None and len(unsure_moves) >= 10:
+                                (currentnode.child).append(Node(child, score[k]))
+                        # if unsure moves is not empty and it contains more than x moves given x
+                        elif unsure_moves != None and len(unsure_moves) >= nr:
                             # create sure moves list
                             sure_moves = list(set([(c.i, c.j, c.value) for c in children]).difference(set([(c.i, c.j, c.value) for c in unsure_moves])))
                             # choose 5 random unsure moves, and join it with the "sure_moves" list
                             # to allow for some exploration in this area
-                            combined = list(set(random.choices([(c.i, c.j, c.value) for c in unsure_moves], k=5)).union(set(sure_moves)))
+                            combined = list(set(random.choices([(c.i, c.j, c.value) for c in unsure_moves], k=rm)).union(set(sure_moves)))
                             # if child is in this list
                             if (child.i, child.j, child.value) in combined:
-                                (currentnode.child).append(Node(child, score[k], 0))    
+                                (currentnode.child).append(Node(child, score[k]))    
                         # else if there are no unsure moves, proceed normally
                         else:
-                            (currentnode.child).append(Node(child, score[k], 0))
+                            (currentnode.child).append(Node(child, score[k]))
                         # to get next reward
                         k=k+1
                     # increase current depth once children are created
@@ -404,22 +407,26 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
         root = new_node()
         # current depth initialization to be used when constructing the tree but also for tree search
         cdepth = 0
+        # number of unsure moves that at least need to be present in the unsure moves list
+        nr = 10
+        # number of elements to randomly pick from the unsure_moves list for exploration
+        rm = 5
         ##############################################################
 
         # construct tree & apply minimax and propose best move depth wise
         # starting from depth 0 uptil total depth - iterative deepening
         for i in range(mdepth+1):
             # create tree up till depth i
-            tree(game_state, root, cdepth, i)
+            tree(game_state, root, cdepth, i, nr, rm)
 
             # once level/depth is completed apply minimax on it and already propose a move
             # if we start the game, then we are the maximising player
             if game_state.current_player() == 1:
                 # search tree from the root to depth i, depthwise search -> iterative deepening
-                move = minimax(root, 0, i, True, float('-inf'), float('inf')).mov
+                move = minimax(root, cdepth, i, True, float('-inf'), float('inf')).mov
             # we are the minimizing player aka second player
             else:
-                move = minimax(root, 0, i, False, float('-inf'), float('inf')).mov
+                move = minimax(root, cdepth, i, False, float('-inf'), float('inf')).mov
             
             # make move object first
             move_obj = Move(move.i, move.j, move.value)
