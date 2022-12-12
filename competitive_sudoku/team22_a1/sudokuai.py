@@ -15,7 +15,7 @@ class Node:
         self.mov = mov
         
 def newNode():
-    temp = Node(0,Move(0,0,0)) #initialising the node value
+    temp = Node(0,Move(0,0,0)) # initialising the node value
     return temp
 
 class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
