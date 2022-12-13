@@ -432,12 +432,3 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             move_obj = Move(move.i, move.j, move.value)
             # propose the move
             self.propose_move(move_obj)
-
-
-        
- 
-     
-
-
-
-            
