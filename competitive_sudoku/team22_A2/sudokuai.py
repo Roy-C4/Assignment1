@@ -185,6 +185,14 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         if(r3 == 1):
                             score = score+1
 
+                        # if there are only two cells and we fill one in, that means the opponent can easily score, so we give a penalty later.
+                        if (r1 == 2):
+                            score = score-1
+                        if (r2 == 2):
+                            score = score-1
+                        if (r3 == 2):
+                            score = score-1
+
                         # for possible value                    
                         for val in all_k:
                             # if it is a taboo then do nothing with it
@@ -207,6 +215,17 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                             # NO regions yields a reward of 0
                             elif(score == 0):
                                 rewards.append(0)
+
+                            # if the opponent is able to complete one region after our move, give a penalty 
+                            elif(score == -1):
+                                rewards.append(-2)
+                            # same for two regions
+                            elif(score == -2):
+                                rewards.append(-5)
+                            # and for three
+                            elif(score == -3):
+                                rewards.append(-7)
+
                         # if possible values per pos is at least two
                         if len(all_k) >= 2:
                             # loup through the values
