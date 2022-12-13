@@ -49,8 +49,8 @@ def simulate_game(initial_board: SudokuBoard, player1: SudokuAI, player2: Sudoku
     game_state = GameState(initial_board, copy.deepcopy(initial_board), [], [], [0, 0])
     move_number = 0
     number_of_moves = initial_board.squares.count(SudokuBoard.empty)
-    print('Initial state')
-    print(game_state)
+    # print('Initial state')
+    # print(game_state)
 
     with multiprocessing.Manager() as manager:
         # use a lock to protect assignments to best_move
@@ -64,7 +64,7 @@ def simulate_game(initial_board: SudokuBoard, player1: SudokuAI, player2: Sudoku
 
         while move_number < number_of_moves:
             player, player_number = (player1, 1) if len(game_state.moves) % 2 == 0 else (player2, 2)
-            print(f'-----------------------------\nCalculate a move for player {player_number}')
+            # print(f'-----------------------------\nCalculate a move for player {player_number}')
             player.best_move[0] = 0
             player.best_move[1] = 0
             player.best_move[2] = 0
@@ -79,26 +79,26 @@ def simulate_game(initial_board: SudokuBoard, player1: SudokuAI, player2: Sudoku
                 print('Error: an exception occurred.\n', err)
             i, j, value = player.best_move
             best_move = Move(i, j, value)
-            print(f'Best move: {best_move}')
+            # print(f'Best move: {best_move}')
             player_score = 0
             if best_move != Move(0, 0, 0):
                 if TabooMove(i, j, value) in game_state.taboo_moves:
-                    print(f'Error: {best_move} is a taboo move. Player {3-player_number} wins the game.')
+                    # print(f'Error: {best_move} is a taboo move. Player {3-player_number} wins the game.')
                     game_winner = 3-player_number
                     return game_state.scores, game_winner
                 board_text = str(game_state.board)
                 options = f'--move "{game_state.board.rc2f(i, j)} {value}"'
                 output = solve_sudoku(solve_sudoku_path, board_text, options)
                 if 'Invalid move' in output:
-                    print(f'Error: {best_move} is not a valid move. Player {3-player_number} wins the game.')
+                    # print(f'Error: {best_move} is not a valid move. Player {3-player_number} wins the game.')
                     game_winner = 3-player_number
                     return game_state.scores, game_winner
                 if 'Illegal move' in output:
-                    print(f'Error: {best_move} is not a legal move. Player {3-player_number} wins the game.')
+                    # print(f'Error: {best_move} is not a legal move. Player {3-player_number} wins the game.')
                     game_winner = 3-player_number
                     return game_state.scores, game_winner
                 if 'has no solution' in output:
-                    print(f'The sudoku has no solution after the move {best_move}.')
+                    # print(f'The sudoku has no solution after the move {best_move}.')
                     player_score = 0
                     game_state.moves.append(TabooMove(i, j, value))
                     game_state.taboo_moves.append(TabooMove(i, j, value))
@@ -112,20 +112,20 @@ def simulate_game(initial_board: SudokuBoard, player1: SudokuAI, player2: Sudoku
                     else:
                         raise RuntimeError(f'Unexpected output of sudoku solver: "{output}".')
             else:
-                print(f'No move was supplied. Player {3-player_number} wins the game.')
+                # print(f'No move was supplied. Player {3-player_number} wins the game.')
                 game_winner = 3-player_number
                 return game_state.scores, game_winner
             game_state.scores[player_number-1] = game_state.scores[player_number-1] + player_score
-            print(f'Reward: {player_score}')
-            print(game_state)
+            # print(f'Reward: {player_score}')
+            # print(game_state)
         if game_state.scores[0] > game_state.scores[1]:
-            print('Player 1 wins the game.')
+            # print('Player 1 wins the game.')
             game_winner = 1
         elif game_state.scores[0] == game_state.scores[1]:
-            print('The game ends in a draw.')
+            # print('The game ends in a draw.')
             game_winner = 0
         elif game_state.scores[0] < game_state.scores[1]:
-            print('Player 2 wins the game.')
+            # print('Player 2 wins the game.')
             game_winner = 2
     return game_state.scores, game_winner
 
@@ -178,27 +178,42 @@ def main():
         # Column names
         print('Player1,Player2,Board,Time,Score,Winner', end='\n', sep=',', file=outfile)
         
-        # Time arguments
-        time_args = [0.1, 0.5, 1, 5]
+        # Time arguments and opponents
+        time_args = [0.5]
+        opponents = ['greedy_player.sudokuai', 'team22_a1.sudokuai']
+        
+        for opponent in opponents:
+            # set opposing player (opposing player starts as player 2 in the beginning)
+            opponent_module =  importlib.import_module(opponent)
+            player2 = opponent_module.SudokuAI()
+            if args.second in ('random_player', 'greedy_player', 'random_save_player'):
+                player2.solve_sudoku_path = solve_sudoku_path
 
-        # Play everything once for us starting, and once for the opposing player starting
-        for h in range(2):
+            # set player 1
+            module1 = importlib.import_module(args.first + '.sudokuai')
+            player1 = module1.SudokuAI()
 
-            # Play a select number (next for-loop) of games per time argument (there are 4 arguments)
-            for i in range(4):
-                player_1 = args.first
-                player_2 = args.second
-                time = float(time_args[i])
-                board_type = args.board
+            # set labels
+            player_1 = args.first
+            player_2 = opponent.replace('.sudokuai', '')
 
-                # Play 10 games per time argument
-                for j in range(10):
-                    game_state, game_winner = simulate_game(board, player1, player2, solve_sudoku_path=solve_sudoku_path, calculation_time=time)
-                    print(f'{player_1}, {player_2}, {board_type}, {time}, {game_state}, {game_winner}', end='\n', sep=',', file=outfile)
+            # Play everything once for us starting, and once for the opposing player starting
+            for h in range(2):
 
-            # This is for reversing the starting player
-            player1, player2 = player2, player1
-            player_1, player_2 = player_2, player_1
+                # Play a select number (next for-loop) of games per time argument (there are 4 arguments)
+                for i in time_args:
+                    time = float(i)
+                    board_type = args.board
+
+                    # Play 30 games per time argument
+                    for j in range(30):
+                        game_state, game_winner = simulate_game(board, player1, player2, solve_sudoku_path=solve_sudoku_path, calculation_time=time)
+                        print(f'{player_1}, {player_2}, {board_type}, {time}, {game_state}, {game_winner}', end='\n', sep=',', file=outfile)
+                        print(f'{j+1}/30 games done with {player_1} as player 1 and {player_2} as player 2, player {game_winner} wins')
+
+                # This is for reversing the starting player
+                player1, player2 = player2, player1
+                player_1, player_2 = player_2, player_1
 
 
 if __name__ == '__main__':
