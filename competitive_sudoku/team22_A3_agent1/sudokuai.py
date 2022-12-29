@@ -10,7 +10,19 @@ from competitive_sudoku.sudoku import GameState, Move, SudokuBoard, TabooMove
 import competitive_sudoku.sudokuai
 
 class Node():
-    
+    """
+        Node object that represents a game state
+
+        @param GameState state: the current game state
+        @param int ti: number of wins
+        @param int ni: visit count of node
+        @param int N: visit count of parent 
+        @param Move(i,j,v) mov: move object (e.g. (0, 3) -> 4),
+        @param int reward: contains the reward that a move yields
+        @param Node parent: the parent node
+        @param list score: current score of the game state
+        @param list child: contains the children of the node
+    """
     def __init__(self, state, ti=0, ni=0, N=0, move=False, reward=False, parent=False):
         self.state = state
         # number of wins
@@ -19,10 +31,15 @@ class Node():
         self.ni = ni
         # number of visits of parent
         self.N = N
+        # move 
         self.move = move
+        # reward of move
         self.reward = reward
+        # parent node
         self.parent = parent
+        # score of game state [P1-P2]
         self.score = [0, 0]
+        # children
         self.child = []
         
         
@@ -38,8 +55,17 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
         """
             Computes the best move for the agent for each turn
             Following methods are defined within this method: 
-                eval_function(node): takes a node and calculates the difference in scores,
-                get_legal_moves: get legal moves given a game state/board,
+                -- helper functions
+                get_legal_moves(game_state): get legal moves given a game state/board,
+                evaluate_score(score): calculate difference in score, indicate who has won and return a value
+                ro_policy(score): rollout policy
+                simulate(a_i,, s_i, reward): put action on board, get new state, and get the attributes: state, reward, score
+                -- monte carlo search tree functions
+                select(current_node, C): return/select the child with the highest UCB1 value
+                expand(current_node): add children with their respective attributes
+                rollout: rollout current node, and get value 
+                backpropagate: backprogate the value upwards, and update the attributes (visit count, win count etc.)
+   
             @param GameState game_state: state of the game
             @return: None
 
@@ -211,107 +237,206 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                     
             return all_moves, unsure_moves, rewards, empty_cells
        
-        def select(current_node, C):
-            all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(current_node.state)
-
-            UCB1_values = []
-            for child in current_node.child:
-                ti = child.ti
-                ni = child.ni
-                N = child.N
-                try:
-                    exploitation_term = ti / ni
-                    exploration_term = C * math.sqrt(math.log( N ) / ni)
-                    UCB1 = exploitation_term + exploration_term
-                except ZeroDivisionError:
-                    UCB1 = inf
-
-                UCB1_values.append(UCB1)
-
-            return current_node.child[np.argmax(UCB1_values)]
-        
-        def expand(current_node):
-            # get legal moves from current state
-            all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(current_node.state)
-
-            k = 0
-            for move in all_moves:
-                reward = rewards[k]
-                child = simulate(move, current_node.state, reward)
-                child.move = Move(move.i, move.j, move.value)
-                child.parent = current_node
-                current_node.child.append(child)
-
-                k = k+1
-
         def evaluate_score(score):
+            """
+                Evaluate the score of the game state and return a value 
+            
+                @param list score: score of game state
+                @return int: 1 if agent has won, 0 if it is a draw, and -1 if agent has lost. 
+            
+            """
+            # if agent starts, subtract first index from second index
             if game_state.current_player() == 1:
                 diff = score[0] - score[1]
+            # else other way around
             else:
                 diff = score[1] - score[0]
             
+            # if diff is positive, it is a win
             if diff > 0:
                 return 1
+            # else a draw
             elif diff == 0:
                 return 0
+            # -1 if lose
             else:
                 return -1
-
-        def rollout(s_i):
-
-            # as long as the current state has moves to play
-            while True:
-                # get legal moves from current state
-                all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(s_i.state)
-
-                if not all_moves:
-                    return evaluate_score(s_i.score), s_i
-                
-                a_i, index = ro_policy(all_moves)
-                reward = rewards[index]
-                s_i = simulate(a_i, s_i.state, reward)
+        
+        def ro_policy(moves):
+            """
+                Rollout policy: randomly pick a move
+                @param list moves: list with possible moves
+                @return Move move: random move
+                @return int index: index of random move
+            """
+            # pick a random index
+            index = random.choice(range(len(moves)))
+            # get move
+            move = moves[index]
+            return move, index
 
         def simulate(a_i, s_i, reward):
+            """
+                During rollout, put the move on the board, get the new state, store all the info in a Node variable
+
+                @param Move a_i: current action to be simulated
+                @param GameState s_i: current state
+                @param int reward: reward of move
+                @return Node node: node created during rollout/simulation
+            """
             # put move on board and return new state
             s_i.board.put(a_i.i, a_i.j, a_i.value)
 
             # store the information in a variable of type Node
             node = Node(s_i)
             
+            # assign reward
             node.reward = reward 
 
+            # if agent is player 1
             if s_i.current_player() == 1:
+                # accumulate reward, to keep track of score
                 node.score[0] = node.score[0] + reward
             else:
+            # if agent is player 2, store other way around
                 node.score[1] = node.score[1] + reward
             
+            # return the new node
             return node
         
-        def ro_policy(moves):
-            # pick a random move
-            index = random.choice(range(len(moves)))
-            move = moves[index]
-            return move, index
+        def select(current_node, C):
+            """
+                Phase 1 of Monte Carlo Search Tree Alg.: 
+                Select child node with highest UCB1 value
 
+                @param Node current_node: current node
+                @param int C: constant for fine-tuning / trade-off between exploration and exploitation
+                @return Node child: child with highest UCB1 value
+            """
+            UCB1_values = []
+            # iterate over children
+            for child in current_node.child:
+                ti = child.ti
+                ni = child.ni
+                N = child.N
+                try:
+                    # average value: number wins / number visits
+                    exploitation_term = ti / ni
+                    # exploration term
+                    exploration_term = C * math.sqrt(math.log( N ) / ni)
+                    # UCB1 formula - Upper Confidence Bounds Monte-Carlo
+                    UCB1 = exploitation_term + exploration_term
+                # if ni is zero, this yields UCB1 outcome of infinity
+                except ZeroDivisionError:
+                    UCB1 = inf
+
+                UCB1_values.append(UCB1)
+
+            # return child with highest UCB1 value
+            return current_node.child[np.argmax(UCB1_values)]
+        
+        def expand(current_node):
+            """
+                Phase 2 of Monte Carlo Search Tree Alg.:
+                Expand currentnode/add its children and attributes.
+                
+                @param Node current_node: current node in tree
+                @return: None 
+            """
+            # get legal moves from current state
+            all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(current_node.state)
+
+            # counter to retrieve corresponding reward of the move
+            k = 0
+            # iterate over possible moves
+            for move in all_moves:
+                # get reward
+                reward = rewards[k]
+                # update attributes of child: state, reward, and score
+                child = simulate(move, current_node.state, reward)
+                # update attribute of child: move
+                child.move = Move(move.i, move.j, move.value)
+                # update attribute of child: parent
+                child.parent = current_node
+                # add child
+                current_node.child.append(child)
+
+                k = k+1
+
+        def rollout(s_i):
+            """
+                Phase 3 of Monte Carlo Search Tree Alg.:
+                Rollout current node and retrieve value
+
+                @param Node s_i: current node 
+                @return int: value/outcome of game (win/draw/lose)
+                @return Node s_i: leaf node
+            """
+            # as long as the current state has moves to play
+            while True:
+                # get legal moves from current state
+                all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(s_i.state)
+
+                # if no more moves left
+                if not all_moves:
+                    # return value and state
+                    return evaluate_score(s_i.score), s_i
+                
+                # get random move, and its index
+                a_i, index = ro_policy(all_moves)
+                # get its respective reward
+                reward = rewards[index]
+                # play/simulate move until leaf
+                s_i = simulate(a_i, s_i.state, reward)
+               
         def backpropagate(node, value):
+            """
+                Phase 4 of Monte Carlo Search Tree Alg.:
+                Backpropagate the value upwards, and update the attrbiutes along the way:
+                the visit count of each node, the nr. of wins, and the attribute: parent visit count
+
+                @param Node node: leaf node
+                @param int value: outcome of gamestate
+                @return: None
+            """
+            # while parent attribute exists
             while node.parent:
-                node.parent.ni =  node.parent.ni + 1
+                # increment attribute: parent visit count
+                # node.parent.ni =  node.parent.ni + 1
+                # increment visit count of node
                 node.ni = node.ni + 1
+                # increment attribute: parent visit count
                 node.N = node.N + 1
+                # if outcome is: win
                 if value == 1:
+                    # increment number of wins
                     node.ti = node.ti + value
+                # new node is parent
                 node = node.parent
 
 
         def mcts(root, nr_iterations, C):
+            """
+                Monte Carlo Search Tree Alg.:
+                Outline, self.propose best move based on highest visit count with every iteration 
+                latest best move proposed until time limit is up
 
+                @param Node root: root node of tree/initial state
+                @param int nr_iterations: number of iterations of MCTS search
+                @param int C: fine tuning parameter
+
+                @return: None
+            
+            """
             for i in range(nr_iterations):
+                # start with initial root node
                 node = root
 
                 # select
                 while node.child:
                     node = select(node, C)
 
+                # if node has been visited before
                 if node.ni != 0:
                     # expand
                     all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(node.state)
@@ -326,20 +451,20 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # backpropagate
                 backpropagate(leafnode, value)
             
-                # after each iteration, choose node with highest visit count - robut child as best move
-                # until time limit is up
-                # TODO: NOT SO SURE ANYMORE ABOUT THIS, SELECT ALREADY CHOOSES CHILD BASED ON UCB value RIGHT? OR IS THIS ONLY FOR THE TRAVERSAL
-                # AND SHOULD WE JUST RE-CHECK/PICK CHILD BASED ON VISIT COUNT 
-                # select best move with every iteration by returning the node that has the highest visit count - robust child
+                # after each iteration, choose node with highest visit count - robut child as best move               
                 most_visited_index = np.argmax([child.ni for child in root.child])
                 best_node = root.child[most_visited_index]
                 best_move = best_node.move
-                print("best_move", best_move, "at iteration", i)
+                # propose move
                 self.propose_move(best_move)
 
-        root = Node(game_state) 
+        # initialize root node
+        root = Node(game_state)
+
+        # expand root node with its children 
         expand(root)
 
+        # start Monte Carlo Search Tree Alg. with nr_iterations:1000, and with C = 2
         mcts(root, 1000, 2)
 
         
