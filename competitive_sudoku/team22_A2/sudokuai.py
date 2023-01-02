@@ -264,7 +264,13 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             if depth == mdepth or not node.child:
                 node.value = node.diff
                 return node
-
+            #check for taboo branches
+            if depth != mdepth and len(node.child) == 0:
+                if(isMaximisingPlayer):
+                    node.value = float('-inf')
+                else:
+                    node.value = float('inf')
+                return node
             # get children of node
             children = get_children(node)
 
