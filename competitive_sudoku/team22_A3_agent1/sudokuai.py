@@ -9,11 +9,13 @@ import random
 from competitive_sudoku.sudoku import GameState, Move, SudokuBoard, TabooMove
 import competitive_sudoku.sudokuai
 
+
 class Node():
     """
         Node object that represents a game state
 
         @param GameState state: the current game state
+        @param int depth: current depth of node
         @param int ti: number of wins
         @param int ni: visit count of node
         @param int N: visit count of parent 
@@ -23,8 +25,11 @@ class Node():
         @param list score: current score of the game state
         @param list child: contains the children of the node
     """
-    def __init__(self, state, ti=0, ni=0, N=0, move=False, reward=False, parent=False):
+    def __init__(self, state, depth=0, ti=0, ni=0, N=0, move=False, reward=False, parent=False):
+        # current state 
         self.state = state
+        # current depth
+        self.depth = depth
         # number of wins
         self.ti = ti
         # number of visits
@@ -59,7 +64,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 get_legal_moves(game_state): get legal moves given a game state/board,
                 evaluate_score(score): calculate difference in score, indicate who has won and return a value
                 ro_policy(score): rollout policy
-                simulate(a_i,, s_i, reward): put action on board, get new state, and get the attributes: state, reward, score
+                simulate(a_i,, s_i, reward, parent, depth): put action on board, get new state, and get the attributes: state, reward, score, parent, and depth
                 -- monte carlo search tree functions
                 select(current_node, C): return/select the child with the highest UCB1 value
                 expand(current_node): add children with their respective attributes
@@ -275,32 +280,51 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             move = moves[index]
             return move, index
 
-        def simulate(a_i, s_i, reward):
+        def simulate(a_i, s_i, reward, parent, depth):
             """
                 During rollout, put the move on the board, get the new state, store all the info in a Node variable
 
                 @param Move a_i: current action to be simulated
                 @param GameState s_i: current state
                 @param int reward: reward of move
+                @param Node parent: parent node
+                @param int depth: current depth of node
                 @return Node node: node created during rollout/simulation
             """
             # put move on board and return new state
             s_i.board.put(a_i.i, a_i.j, a_i.value)
+   
+            # save new state object
+            self.save(s_i)
 
-            # store the information in a variable of type Node
-            node = Node(s_i)
-            
+            # load state object and store the information in a variable of type Node
+            node = Node(self.load())
+
+            # assign depth
+            node.depth = depth 
+
             # assign reward
             node.reward = reward 
 
-            # if agent is player 1
-            if s_i.current_player() == 1:
+            # assign its parent 
+            node.parent = parent
+
+            # assign the move made
+            node.move = Move(a_i.i, a_i.j, a_i.value)
+
+            if node.depth % 2 == 0:
                 # accumulate reward, to keep track of score
-                node.score[0] = node.score[0] + reward
+                node.score[0] = node.parent.score[0]
+                node.score[1] = node.parent.score[1] + reward
             else:
-            # if agent is player 2, store other way around
-                node.score[1] = node.score[1] + reward
-            
+                # accumulate reward, to keep track of score
+                node.score[0] = node.parent.score[0] + reward
+                # copy parents score
+                node.score[1] = node.parent.score[1]
+
+            # undo the move
+            s_i.board.put(a_i.i, a_i.j, 0)
+
             # return the new node
             return node
         
@@ -343,24 +367,29 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @param Node current_node: current node in tree
                 @return: None 
             """
+
             # get legal moves from current state
             all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(current_node.state)
-
             # counter to retrieve corresponding reward of the move
             k = 0
             # iterate over possible moves
             for move in all_moves:
                 # get reward
                 reward = rewards[k]
-                # update attributes of child: state, reward, and score
-                child = simulate(move, current_node.state, reward)
-                # update attribute of child: move
-                child.move = Move(move.i, move.j, move.value)
-                # update attribute of child: parent
-                child.parent = current_node
+
+                # depth of child
+                depth = current_node.depth + 1
+
+                # update attributes of child: state, reward, score, parent, and depth
+                child = simulate(move, current_node.state, reward, current_node, depth)
+      
                 # add child
                 current_node.child.append(child)
 
+                # once done with this child, undo the move
+                current_node.state.board.put(move.i, move.j, 0)
+
+                # go to next move
                 k = k+1
 
         def rollout(s_i):
@@ -376,18 +405,22 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             while True:
                 # get legal moves from current state
                 all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(s_i.state)
-
                 # if no more moves left
                 if not all_moves:
                     # return value and state
-                    return evaluate_score(s_i.score), s_i
+                    return evaluate_score(s_i.score),  s_i
                 
                 # get random move, and its index
                 a_i, index = ro_policy(all_moves)
+                
                 # get its respective reward
                 reward = rewards[index]
+
+                # depth of child
+                depth = s_i.depth + 1
+
                 # play/simulate move until leaf
-                s_i = simulate(a_i, s_i.state, reward)
+                s_i = simulate(a_i, s_i.state, reward, s_i, depth)
                
         def backpropagate(node, value):
             """
@@ -399,10 +432,9 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @param int value: outcome of gamestate
                 @return: None
             """
+
             # while parent attribute exists
             while node.parent:
-                # increment attribute: parent visit count
-                # node.parent.ni =  node.parent.ni + 1
                 # increment visit count of node
                 node.ni = node.ni + 1
                 # increment attribute: parent visit count
@@ -414,7 +446,11 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # new node is parent
                 node = node.parent
 
-
+            # also make sure to update root node
+            node.ni = node.ni + 1
+            if value == 1:
+                node.ti = node.ti + value
+        
         def mcts(root, nr_iterations, C):
             """
                 Monte Carlo Search Tree Alg.:
@@ -435,6 +471,8 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # select
                 while node.child:
                     node = select(node, C)
+                
+                print("CHOSEN NODE", node.move, "ITS REWARD", node.reward, "ITS PARENT", node.parent.move, "ITS STATE", node.state, "ITS SCORE", node.score, "ITS DEPTH", node.depth)
 
                 # if node has been visited before
                 if node.ni != 0:
@@ -442,8 +480,10 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                     all_moves, unsure_moves, rewards, empty_cells = get_legal_moves(node.state)
                     if all_moves:
                         expand(node)
+                        print("EXPANDED NODE", node.move,  "ITS STATE", node.state, "ITS PARENT", node.parent.move, "ITS REWARD", node.reward, "ITS DEPTH", node.depth, "ITS SCORE", node.score, "ITS CHILDREN", node.child)
                         # select and continue with rollout
                         node = select(node, C)
+                        print("CHOSEN NODE AFTER EXPANSION", node.move, "ITS REWARD", node.reward, "ITS PARENT", node.parent.move, "ITS STATE", node.state, "ITS DEPTH", node.depth, "ITS SCORE", node.score)
 
                 # simulate/rollout
                 value, leafnode = rollout(node)
@@ -457,6 +497,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 best_move = best_node.move
                 # propose move
                 self.propose_move(best_move)
+            print("BEST MOVE", best_move)
 
         # initialize root node
         root = Node(game_state)
@@ -465,6 +506,10 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
         expand(root)
 
         # start Monte Carlo Search Tree Alg. with nr_iterations:1000, and with C = 2
-        mcts(root, 1000, 2)
+        mcts(root, 10000, 2)
 
+       
+
+    
+        
         
