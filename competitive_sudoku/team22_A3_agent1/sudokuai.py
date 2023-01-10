@@ -62,18 +62,21 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             Computes the best move for the agent for each turn
             Following methods are defined within this method: 
                 -- helper functions
-                get_legal_moves(game_state): get legal moves given a game state/board,
-                evaluate_score(score): calculate difference in score, indicate who has won and return a value
-                ro_policy(score): rollout policy
-                simulate(a_i,, s_i, reward, parent, depth): put action on board, get new state, and get the attributes: state, reward, score, parent, and depth
+                1. get_legal_moves(game_state): get legal moves given a game state/board,
+                2. heuristic(state): reduce legal moves by considering only a proportion of the unsure moves
+                3. evaluate_score(score): calculate difference in score, indicate who has won and return a value
+                4. ro_policy(score): rollout policy
+                5. simulate(a_i,, s_i, reward, parent, depth): put action on board, get new state, and 
+                    get the attributes: state, reward, score, parent, and depth
                 -- monte carlo search tree functions
-                select(current_node, C): return/select the child with the highest UCB1 value
-                expand(current_node): add children with their respective attributes
-                rollout: rollout current node, and get value 
-                backpropagate: backprogate the value upwards, and update the attributes (visit count, win count etc.)
+                1. select(current_node, C): return/select the child with the highest UCB1 value
+                2. expand(current_node): add children with their respective attributes
+                3. rollout: rollout current node, and get value 
+                4. backpropagate: backprogate the value upwards, and update the attributes (visit count, win count etc.)
    
             @param GameState game_state: state of the game
             @return: None
+
 
         """       
         def get_legal_moves(game_state: GameState): 
@@ -82,16 +85,12 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
                 @param GameState game_state: the current game state
                 @return dict all_moves: a dict of legal moves of the current game state split into unsure and sure moves
-                @return list unsure_moves: list that stores moves created when for a given pos 
-                multiple values can be filled in
-                @return list rewards: a list of the respective rewards, so the first legal move 
-                in the all_moves list has the reward rewards[0] and so on. 
                 @return int empty_cells: number of empty cells, indicates total depth/turns of game
                 to be used for tree construction
-            """      
+            """    
             m = game_state.board.region_height()
             n = game_state.board.region_width()
-            N = m*n
+            N = m*n  
 
             def InRow(i, board):
                 """
@@ -159,6 +158,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 for j in range(N):
                     # if cell is empty
                     if(game_state.board.get(i,j) == SudokuBoard.empty):
+                        
                         # increase counter
                         empty_cells = empty_cells+1
 
@@ -193,10 +193,14 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         if (r3 == 2):
                             score = score-1
 
+
+                        declared_taboo_after = []
                         # for possible value                    
                         for val in all_k:
                             # if it is a taboo then do nothing with it
                             if(TabooMove(i, j, val) in game_state.taboo_moves):
+                                # if declared taboo afterwards
+                                declared_taboo_after.append(val)
                                 continue
                                  
                             # calc rewards
@@ -215,13 +219,17 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
                             # if the opponent is able to complete one region after our move, give a penalty 
                             elif(score == -1):
-                                rewards = -2 
+                                rewards = -3
                             # same for two regions
                             elif(score == -2):
                                 rewards = -5
                             # and for three
                             elif(score == -3):
                                 rewards = -7
+
+                        # if after utilizing a fake move, it is declared taboo, makes sure not to make the move anymore
+                        for f in declared_taboo_after:
+                            all_k.remove(f)
 
                         # if possible values per pos is at least two
                         if len(all_k) >= 2:
@@ -232,12 +240,12 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                                     # create the move and add it to unsure_move list
                                     all_moves["unsure-moves"].update({(i,j, v): rewards})
                         else:
+                            # if only one move -> sure
                             if len(all_k) == 1:
                                 all_moves["sure-moves"].update({(i,j, list(all_k)[0]): rewards})
-                    
+
             return all_moves, empty_cells
        
-        
         def heuristic(state):
             """
                 unsure-sure moves heuristic
@@ -246,10 +254,10 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @return dict considered_moves: moves that are considered
                 @return int empty_cells: nr of empty cells aka depth
             """
-            # nr of unsure moves that need to be at least present
+            # nr of unsure moves to pick in case with really small grids
             nr = 2
-            # nr of unsure moves chosen
-            rm = 2
+            # percentage of unsure moves to pick
+            percentage = 60
 
             # get dictionary
             all_moves, empty_cells = get_legal_moves(state)
@@ -257,13 +265,17 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             unsure_moves = all_moves["unsure-moves"]
             sure_moves = all_moves["sure-moves"]
 
-            # if unsure moves list is not empty and it contains less than x moves given x or unsure moves is empty
-            if (unsure_moves != None and len(unsure_moves) < nr) or (unsure_moves == None):
-                considered_moves = sure_moves
-            # if unsure moves is not empty and it contains more than x moves given x
-            elif unsure_moves != None and len(unsure_moves) >= nr:
-                chosen_unsure_moves = dict(random.sample(all_moves["unsure-moves"].items(), rm))
-                considered_moves = dict(chain(all_moves["sure-moves"].items(), chosen_unsure_moves.items()) )   
+            # calc. number of moves representing a certain percentage
+            k = len(unsure_moves) * percentage // 100
+
+            # if only two unsure moves
+            if len(unsure_moves) == nr:
+                # consider all
+                chosen_unsure_moves = dict(random.sample(all_moves["unsure-moves"].items(), nr))
+            else:
+                # else only a certain percentage
+                chosen_unsure_moves = dict(random.sample(all_moves["unsure-moves"].items(), k))
+            considered_moves = dict(chain(sure_moves.items(), chosen_unsure_moves.items()) )   
 
             # make one big list for testing purposes
             return considered_moves, empty_cells
@@ -273,7 +285,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 Evaluate the score of the game state and return a value 
             
                 @param list score: score of game state
-                @return int: 1 if agent has won, 0 if it is a draw, and -1 if agent has lost. 
+                @return int: 1 if agent has won, 0 if it is a draw, and -1 if it is a loss. 
             
             """
             # if agent starts, subtract first index from second index
@@ -298,7 +310,6 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 Rollout policy: randomly pick a move
                 @param list moves: list with possible moves
                 @return Move move: random move
-                @return int index: index of random move
             """
             # pick a random move
             move = random.choice(list(moves))
@@ -336,15 +347,21 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
             # assign the move made
             node.move = Move(a_i[0], a_i[1], a_i[2])
 
-            if node.depth % 2 == 0:
-                # accumulate reward, to keep track of score
-                node.score[0] = node.parent.score[0]
-                node.score[1] = node.parent.score[1] + reward
+            if game_state.current_player() == 1:
+                if node.depth % 2 == 0:
+                    # accumulate reward, to keep track of score
+                    node.score[0] = node.parent.score[0]
+                    node.score[1] = node.parent.score[1] + reward
+                else:
+                    node.score[0] = node.parent.score[0] + reward
+                    node.score[1] = node.parent.score[1]
             else:
-                # accumulate reward, to keep track of score
-                node.score[0] = node.parent.score[0] + reward
-                # copy parents score
-                node.score[1] = node.parent.score[1]
+                if node.depth % 2 == 0:
+                    node.score[1] = node.parent.score[1]
+                    node.score[0] = node.parent.score[0] + reward
+                else:
+                    node.score[1] = node.parent.score[1] + reward
+                    node.score[0] = node.parent.score[0]  
 
             # undo the move
             s_i.board.put(a_i[0], a_i[1], 0)
@@ -361,6 +378,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @param int C: constant for fine-tuning / trade-off between exploration and exploitation
                 @return Node child: child with highest UCB1 value
             """
+
             UCB1_values = []
             # iterate over children
             for child in current_node.child:
@@ -410,12 +428,13 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # once done with this child, undo the move
                 current_node.state.board.put(move[0], move[1], 0)
 
-        def rollout(s_i):
+        def rollout(s_i, mdepth):
             """
                 Phase 3 of Monte Carlo Search Tree Alg.:
                 Rollout current node and retrieve value
 
                 @param Node s_i: current node 
+                @param int mdepth: maximum depth of tree
                 @return int: value/outcome of game (win/draw/lose)
                 @return Node s_i: leaf node
             """
@@ -425,8 +444,20 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 all_moves, empty_cells = heuristic(s_i.state)
                 # if no more moves left
                 if not all_moves:
+                    # if nr of cels even, player 1, and it is an invalid move - FAKE MOVE heuristic
+                    if (mdepth % 2 == 0) and (game_state.current_player() == 1) and (s_i.depth < mdepth):
+                        # motivate going to that branch
+                        value = 1000
+                    # else at an odd depth, stay away from it
+                    elif (mdepth % 2 != 0) and (game_state.current_player() == 1) and (s_i.depth < mdepth):
+                        value = -1000
+                    # or if we encounter this as player 2, also stay away
+                    elif (game_state.current_player() == 2) and (s_i.depth < mdepth):
+                        value = -1000
+                    else: 
+                        value = evaluate_score(s_i.score)
                     # return value and state
-                    return evaluate_score(s_i.score),  s_i
+                    return value, s_i
                 
                 # get random move, and its index
                 a_i = ro_policy(all_moves)
@@ -450,7 +481,6 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 @param int value: outcome of gamestate
                 @return: None
             """
-
             # while parent attribute exists
             while node.parent:
                 # increment visit count of node
@@ -458,7 +488,7 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # increment attribute: parent visit count
                 node.N = node.N + 1
                 # if outcome is: win
-                if value == 1:
+                if value >= 1:
                     # increment number of wins
                     node.ti = node.ti + value
                 # new node is parent
@@ -466,16 +496,19 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
             # also make sure to update root node
             node.ni = node.ni + 1
-            if value == 1:
+            if value >= 1:
                 node.ti = node.ti + value
+
+            return node
         
-        def mcts(root, nr_iterations, C):
+        def mcts(root, nr_iterations, C, mdepth):
             """
                 Monte Carlo Search Tree Alg.:
                 Outline, self.propose best move based on highest visit count with every iteration 
                 latest best move proposed until time limit is up
 
                 @param Node root: root node of tree/initial state
+                @param int mdepth: max depth of tree
                 @param int nr_iterations: number of iterations of MCTS search
                 @param int C: fine tuning parameter
 
@@ -490,41 +523,42 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 while node.child:
                     node = select(node, C)
                 
-                # print("CHOSEN NODE", node.move, "ITS REWARD", node.reward, "ITS PARENT", node.parent.move, "ITS STATE", node.state, "ITS SCORE", node.score, "ITS DEPTH", node.depth)
-
                 # if node has been visited before
                 if node.ni != 0:
                     # expand
                     all_moves, empty_cells = heuristic(node.state)
                     if all_moves:
                         expand(node)
-                        # print("EXPANDED NODE", node.move,  "ITS STATE", node.state, "ITS PARENT", node.parent.move, "ITS REWARD", node.reward, "ITS DEPTH", node.depth, "ITS SCORE", node.score, "ITS CHILDREN", node.child)
                         # select and continue with rollout
                         node = select(node, C)
-                        # print("CHOSEN NODE AFTER EXPANSION", node.move, "ITS REWARD", node.reward, "ITS PARENT", node.parent.move, "ITS STATE", node.state, "ITS DEPTH", node.depth, "ITS SCORE", node.score)
 
                 # simulate/rollout
-                value, leafnode = rollout(node)
-
+                value, leafnode = rollout(node, mdepth)
                 # backpropagate
                 backpropagate(leafnode, value)
-            
+         
                 # after each iteration, choose node with highest visit count - robut child as best move               
                 most_visited_index = np.argmax([child.ni for child in root.child])
                 best_node = root.child[most_visited_index]
                 best_move = best_node.move
                 # propose move
                 self.propose_move(best_move)
-            # print("BEST MOVE", best_move)
+                print("proposed move", best_move)
+        
 
         # initialize root node
         root = Node(game_state)
+        # store score
+        root.score = game_state.scores
+        
+        # get maximum depth
+        m, mdepth = get_legal_moves(game_state)
 
         # expand root node with its children 
         expand(root)
 
-        # start Monte Carlo Search Tree Alg. with nr_iterations:1000, and with C = 2
-        mcts(root, 10000, 2)
+        # start Monte Carlo Search Tree Alg. with nr_iterations, and with C = sqrt(2)
+        mcts(root, 25, math.sqrt(2), mdepth)
 
   
        
