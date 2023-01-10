@@ -445,15 +445,16 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 # if no more moves left
                 if not all_moves:
                     # if nr of cels even, player 1, and it is an invalid move - FAKE MOVE heuristic
+                    # pass a taboo move to skip our turn so that we get the last move for 7 points
                     if (mdepth % 2 == 0) and (game_state.current_player() == 1) and (s_i.depth < mdepth):
                         # motivate going to that branch
                         value = 1000
                     # else at an odd depth, stay away from it
                     elif (mdepth % 2 != 0) and (game_state.current_player() == 1) and (s_i.depth < mdepth):
                         value = -1000
-                    # or if we encounter this as player 2, also stay away
-                    elif (game_state.current_player() == 2) and (s_i.depth < mdepth):
-                        value = -1000
+                    # or if we encounter this as player 2, also motivate to go to the branch of the fake move to skip the turn
+                    elif (mdepth % 2 == 0) and (game_state.current_player() == 2) and (s_i.depth < mdepth):
+                        value = 1000
                     else: 
                         value = evaluate_score(s_i.score)
                     # return value and state
@@ -543,7 +544,6 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                 best_move = best_node.move
                 # propose move
                 self.propose_move(best_move)
-                print("proposed move", best_move)
         
 
         # initialize root node
