@@ -180,7 +180,7 @@ def main():
         
         # Time arguments and opponents
         time_args = [0.1, 0.5, 1, 5]
-        opponents = ['greedy_player.sudokuai', 'team22_a1.sudokuai']
+        opponents = ['greedy_player.sudokuai', 'team22_A2.sudokuai']
         
         for opponent in opponents:
             # set opposing player (opposing player starts as player 2 in the beginning)
@@ -206,14 +206,14 @@ def main():
                     board_type = args.board
                     
                     # Play 30 games per time argument, except for 5 seconds
-                    nr_of_tests = 30
-                    if i == 5:
-                        nr_of_tests = 20
+                    nr_of_tests = 20
+                    # if i == 5:
+                    #     nr_of_tests = 20
 
                     for j in range(nr_of_tests):
                         game_state, game_winner = simulate_game(board, player1, player2, solve_sudoku_path=solve_sudoku_path, calculation_time=time)
                         print(f'{player_1}, {player_2}, {board_type}, {time}, {game_state}, {game_winner}', end='\n', sep=',', file=outfile)
-                        print(f'{j+1}/30 games done with {player_1} as player 1 and {player_2} as player 2, player {game_winner} wins')
+                        print(f'{j+1}/{nr_of_tests} games done with {player_1} as player 1 and {player_2} as player 2, player {game_winner} wins')
 
                 # This is for reversing the starting player
                 player1, player2 = player2, player1
