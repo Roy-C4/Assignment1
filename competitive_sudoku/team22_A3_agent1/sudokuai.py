@@ -176,7 +176,10 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         r2 = N - len(present_in_col)
                         r3 = N - len(present_in_square)
                         # score that keeps track of how many regions are completed
+                        # penaly to keep track of potential penalty if the opponent can score easy points
                         score = 0
+                        penalty = 0
+
                         # if only one cell is empty increase counter
                         if(r1 == 1):
                             score = score+1
@@ -185,13 +188,14 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                         if(r3 == 1):
                             score = score+1
 
-                        # if there are only two cells and we fill one in, that means the opponent can easily score, so we give a penalty later.
+                        # if there are only two cells and we fill one in, 
+                        # that means the opponent can easily score, so we give a penalty later.
                         if (r1 == 2):
-                            score = score-1
+                            penalty = penalty-1
                         if (r2 == 2):
-                            score = score-1
+                            penalty = penalty-1
                         if (r3 == 2):
-                            score = score-1
+                            penalty = penalty-1
 
 
                         declared_taboo_after = []
@@ -218,14 +222,14 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
                                 rewards = 0
 
                             # if the opponent is able to complete one region after our move, give a penalty 
-                            elif(score == -1):
-                                rewards = -3
+                            if(penalty == -1):
+                                rewards -= 2
                             # same for two regions
-                            elif(score == -2):
-                                rewards = -5
+                            elif(penalty == -2):
+                                rewards -= 5
                             # and for three
-                            elif(score == -3):
-                                rewards = -7
+                            elif(penalty == -3):
+                                rewards -= 7
 
                         # if after utilizing a fake move, it is declared taboo, makes sure not to make the move anymore
                         for f in declared_taboo_after:
