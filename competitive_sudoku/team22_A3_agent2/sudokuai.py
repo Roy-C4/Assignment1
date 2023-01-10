@@ -279,7 +279,16 @@ class SudokuAI(competitive_sudoku.sudokuai.SudokuAI):
 
                 # if we are player 1 and nr of empty cells is even (meaning we won't get the last turn),
                 # give a taboo move as best move so that we skip our turn
+                
                 if game_state.current_player() == 1 and node.empty_cells % 2 == 0:
+                    if(isMaximisingPlayer):
+                        node.value = 10000.0
+                    else:
+                        node.value = float('-inf')
+                    
+                    return node
+                
+                elif game_state.current_player() == 2 and node.empty_cells % 2 == 0:
                     if(isMaximisingPlayer):
                         node.value = 10000.0
                     else:
